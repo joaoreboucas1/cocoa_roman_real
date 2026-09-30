@@ -50,6 +50,10 @@ class _cosmolike_prototype_base(DataSetLikelihood):
   def initialize(self, probe):
     ini = IniFile(os.path.normpath(os.path.join(self.path, self.data_file)))
     self.probe = probe
+    if self.probe == "cluster_lensing":
+      # Cluster lensing is not computed by Cosmolike (see init_cluster_lensing)
+      self.init_cluster_lensing(ini)
+      return
     self.data_vector_file = ini.relativeFileName('data_file')
     self.cov_file = ini.relativeFileName('cov_file')
     self.mask_file = ini.relativeFileName('mask_file')
@@ -198,6 +202,18 @@ class _cosmolike_prototype_base(DataSetLikelihood):
   # ------------------------------------------------------------------------
 
   def get_requirements(self):
+    if self.probe == "cluster_lensing":
+      return {
+        "omegam": None,
+        "omegab": None,
+        "ns": None,
+        "w": None,
+        "wa": None,
+        "sigma8": None,
+        "comoving_radial_distance": {
+          "z": self.cl_zgrid
+        } # in Mpc
+      }
     if self.use_emulator == 1:
       if self.probe == "xi":
         return {
@@ -522,6 +538,8 @@ class _cosmolike_prototype_base(DataSetLikelihood):
   # ------------------------------------------------------------------------
   # ------------------------------------------------------------------------
   def logp(self, **params):
+    if self.probe == "cluster_lensing":
+      return self.compute_logp_cluster_lensing(**params)
     return self.compute_logp(self.get_datavector(**params))
 
   # ------------------------------------------------------------------------
@@ -676,3 +694,167 @@ class _cosmolike_prototype_base(DataSetLikelihood):
       fmt = '%d', '%1.8e'
       np.savetxt(self.print_datavector_file, out, fmt = fmt)
     return datavector
+
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+  # CLUSTER LENSING: stacked Delta Sigma(r_p) in richness bins, one GP
+  # emulator per redshift bin for centered and miscentered clusters.
+  # Ported from Cluster_cosmo/emcee_cosmo_emu_bin_rich_lens_3bin_HOD_evol_
+  # ns_free_w0waCDM_v2.py. Not computed by Cosmolike. H0 comes from Cobaya
+  # (the original derived h from CLASS at fixed theta_s).
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+
+  def init_cluster_lensing(self, ini):
+    from cobaya.likelihoods.roman_real import predict_emulator
+    import astropy.cosmology
+
+    self.cl_nzbins = ini.int("n_zbins")
+    hubble = ini.float("hubble_rp") # h assumed in the data units (rp cut)
+    rp_min = ini.float("rp_min")
+    rich_cut_min = ini.int("richness_cut_min")
+    rich_cut_max = ini.int("richness_cut_max")
+    self.cl_fixed_alpha_s = 0.0
+    self.cl_fixed_Neff = 3.0238
+
+    self.cl_zgrid = np.linspace(0.0, 4.0, 1000)
+    cosmo_fid = astropy.cosmology.FlatLambdaCDM(H0=ini.float("fid_H0"),
+                                                Om0=ini.float("fid_Om"))
+    self.cl_chi_fid = cosmo_fid.comoving_distance(self.cl_zgrid).value # Mpc
+
+    self.cl_a = []
+    self.cl_z_data = []
+    self.cl_emu_cen = []
+    self.cl_emu_mis = []
+    self.cl_cut = []
+    self.cl_icov = []
+    self.cl_obs = []
+    self.cl_src = []
+    for i in range(1, self.cl_nzbins+1):
+      a = 1.0/(1.0 + ini.float("redshift_emu_%d" % i))
+      emu_cen, rp_binmin, rp_binmax = predict_emulator.get_emulate_fun(
+        ini.relativeFileName("emu_cen_file_%d" % i))
+      emu_mis, _, _ = predict_emulator.get_emulate_fun(
+        ini.relativeFileName("emu_mis_file_%d" % i))
+      rp = (a/hubble)*(rp_binmin + rp_binmax)/2.0
+      # r_p cut first, then richness cut, on the emulator output
+      cut = np.where(rp > rp_min)[0][rich_cut_min:rich_cut_max]
+
+      cov = np.genfromtxt(ini.relativeFileName("cov_file_%d" % i))
+      if len(cov[0]) == len(rp):
+        mask = np.where(rp > rp_min)[0]
+        cov = cov[np.ix_(mask, mask)]
+      cov = cov[rich_cut_min:rich_cut_max, rich_cut_min:rich_cut_max]
+
+      src = np.genfromtxt(ini.relativeFileName("src_dist_file_%d" % i))
+
+      self.cl_a.append(a)
+      self.cl_z_data.append(ini.float("redshift_data_%d" % i))
+      self.cl_emu_cen.append(emu_cen)
+      self.cl_emu_mis.append(emu_mis)
+      self.cl_cut.append(cut)
+      self.cl_icov.append(np.linalg.pinv(cov))
+      self.cl_obs.append(np.genfromtxt(
+        ini.relativeFileName("data_file_%d" % i))[:,1][rich_cut_min:rich_cut_max])
+      self.cl_src.append(src) # columns: zbins_upper, zbins_lower, n(z)
+
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+
+  def cluster_lensing_corr(self, z_lens, src, chi):
+    # Ratio between the sampled and fiducial Sigma_crit^{-1}, averaged over
+    # the source distribution (units cancel, so chi can be in Mpc)
+    def sigcrit_inv(z_source, chi):
+      Dlens = np.interp(z_lens, self.cl_zgrid, chi)/(1.0 + z_lens)
+      Dsrc  = np.interp(z_source, self.cl_zgrid, chi)/(1.0 + z_source)
+      res = (Dlens/Dsrc)*(Dsrc - Dlens)
+      res[res < 0] = 0.0
+      return res
+    zbins_upper, zbins_lower, src_dist = src[:,0], src[:,1], src[:,2]
+    z_source = (zbins_upper + zbins_lower)/2.0
+    w = src_dist*(zbins_upper - zbins_lower)
+    s_fid = sigcrit_inv(z_source, self.cl_chi_fid)
+    s     = sigcrit_inv(z_source, chi)
+    return np.sum(w*s_fid*s)/np.sum(w*s_fid**2)
+
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+
+  def cluster_lensing_hod(self, **params):
+    # HOD sampled at the first and last bins, linearly interpolated in
+    # redshift for the bins in between
+    hod = []
+    z1, z3 = self.cl_z_data[0], self.cl_z_data[-1]
+    for zd in self.cl_z_data:
+      t = (zd - z1)/(z3 - z1)
+      hod.append([params[survey+"_CL_"+p+"_1"] + t*(params[survey+"_CL_"+p+"_3"]
+                  - params[survey+"_CL_"+p+"_1"]) for p in ["SIGLOGM","LOGMMIN","LOGM20","ALPHA"]])
+    return hod
+
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+
+  def get_cluster_lensing_datavector(self, **params):
+    omegam = self.provider.get_param("omegam")
+    omegab = self.provider.get_param("omegab")
+    cosmo = [self.provider.get_param("ns"),
+             self.provider.get_param("sigma8"),
+             self.provider.get_param("w"),
+             self.provider.get_param("wa"),
+             omegam - omegab,
+             omegab,
+             self.cl_fixed_alpha_s,
+             self.cl_fixed_Neff]
+    pca  = params[survey+"_CL_PCA"]
+    fmis = params[survey+"_CL_FMIS"]
+    tau  = params[survey+"_CL_TAU"]
+    chi  = self.provider.get_comoving_radial_distance(self.cl_zgrid)
+    hod  = self.cluster_lensing_hod(**params)
+
+    dv = []
+    for i in range(self.cl_nzbins):
+      Am   = params[survey+"_CL_AM"+str(i+1)]
+      corr = self.cluster_lensing_corr(self.cl_z_data[i], self.cl_src[i], chi)
+      cen  = self.cl_emu_cen[i](np.array(hod[i] + [pca] + cosmo))
+      mis  = self.cl_emu_mis[i](np.array(hod[i] + [pca, tau] + cosmo))
+      cut  = self.cl_cut[i]
+      dv.append(Am*corr*((1.0 - fmis)*cen[cut] + fmis*mis[cut])/self.cl_a[i]**2)
+    dv = np.concatenate(dv)
+
+    if self.print_datavector:
+      size = len(dv)
+      out = np.zeros(shape=(size, 2))
+      out[:,0] = np.arange(0, size)
+      out[:,1] = dv
+      fmt = '%d', '%1.8e'
+      np.savetxt(self.print_datavector_file, out, fmt = fmt)
+    return dv
+
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+
+  def compute_logp_cluster_lensing(self, **params):
+    # Hard cuts of the original code that the yaml priors cannot express
+    fmis = params[survey+"_CL_FMIS"]
+    tau  = params[survey+"_CL_TAU"]
+    if not (0.0 <= fmis <= 1.0) or not (0.0 <= tau <= 1.0):
+      return -np.inf
+    hod = self.cluster_lensing_hod(**params)
+    if any(h[1] > 12.8 for h in hod[1:-1]): # interpolated bins: logMmin
+      return -np.inf
+
+    dv = self.get_cluster_lensing_datavector(**params)
+    chi2 = 0.0
+    istart = 0
+    for i in range(self.cl_nzbins):
+      iend = istart + len(self.cl_obs[i])
+      diff = dv[istart:iend] - self.cl_obs[i]
+      chi2 += diff @ self.cl_icov[i] @ diff
+      istart = iend
+    return -0.5*chi2

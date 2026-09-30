@@ -1,0 +1,7 @@
+path: null
+data_file: cluster_lensing_desy1.dataset
+speed: 1
+print_datavector: False
+print_datavector_file: "./projects/roman_real/chains/theory_cluster_lensing.modelvector"
+
+params: !defaults [params_cluster]
