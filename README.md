@@ -188,7 +188,7 @@ miscentered clusters.
 its own covariance and there is no cross-covariance, neither between redshift bins
 nor with 3x2pt. The model in redshift bin $i$ is
 
-$$\Delta\Sigma_i = A_{m,i}\, c_i \left[(1-f_\mathrm{mis})\,\Delta\Sigma^\mathrm{cen}_i + f_\mathrm{mis}\,\Delta\Sigma^\mathrm{mis}_i\right]/a_i^2,$$
+$$\Delta\Sigma_i = A_{m,i} c_i \left[(1-f_\mathrm{mis})\,\Delta\Sigma^\mathrm{cen}_i + f_\mathrm{mis}\,\Delta\Sigma^\mathrm{mis}_i\right]/a_i^2,$$
 
 where $c_i$ corrects $\Sigma_\mathrm{crit}^{-1}$ from the fiducial cosmology of the
 measurement ($\Omega_m = 0.3$, $H_0 = 70$) to the sampled one.
