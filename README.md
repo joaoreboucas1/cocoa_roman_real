@@ -46,6 +46,39 @@ likelihood alone at a $w_0w_a$ test point (the same one used for the code compar
 
 The expected result is $\chi^2 = 959.613$ ($\sigma_8 = 0.6590$ from CAMB).
 
+**MCMC example**: `EXAMPLE_MCMC_CLUSTER_LENSING1.yaml` samples the cluster lensing
+likelihood alone, set up to resemble the original `ns_fix` chain in `original_code/`:
+$\Lambda$CDM with $n_s = 0.9649$ fixed, $100\theta$ fixed to 1.041533 (so $H_0$ is
+derived), and a Gaussian prior $\Omega_\mathrm{b}h^2 \sim \mathcal{N}(0.02208, 0.00052)$.
+It samples $\log(10^{10}A_s)$, $\Omega_\mathrm{b}h^2$, $\Omega_\mathrm{c}h^2$ and the 14
+cluster nuisance parameters, and derives $H_0$, $\Omega_\mathrm{m}$, $\Omega_\mathrm{b}$,
+$\sigma_8$ and $S_8$. From the cocoa main folder `cocoa/Cocoa`, run
+
+  - Linux
+
+        "${CONDA_PREFIX}"/bin/mpirun -n 4 --oversubscribe \
+          --mca pml ob1 --mca btl vader,tcp,self \
+          --bind-to core:overload-allowed --report-bindings \
+          --rank-by slot --map-by numa:pe=${OMP_NUM_THREADS} \
+          cobaya-run ./projects/roman_real/EXAMPLE_MCMC_CLUSTER_LENSING1.yaml -f
+
+  - macOS (arm)
+
+         mpirun -n 4 --oversubscribe \
+          cobaya-run ./projects/roman_real/EXAMPLE_MCMC_CLUSTER_LENSING1.yaml -f
+
+The chains are written to `chains/EXAMPLE_MCMC_CLUSTER_LENSING1` and the run stops at
+Gelman-Rubin $R-1 < 0.02$.
+
+> [!NOTE]
+> The setup differs from the original chain in a few ways:
+> - $A_s$ is sampled instead of $\sigma_8$, because CAMB cannot take $\sigma_8$ as an input,
+>   so a flat prior on $\log A_s$ replaces the original flat prior on $\sigma_8$;
+> - $\Omega_\mathrm{c}h^2$ is sampled in [0.085, 0.14] instead of $\Omega_\mathrm{m}$; at
+>   fixed $\theta$ this spans $\Omega_\mathrm{m} \approx 0.16$–$0.42$, the original range;
+> - CAMB's $\theta_\mathrm{MC}$ replaces CLASS's $\theta_s$, which gives $h$ about 0.003 higher;
+> - the original's $h \sim \mathcal{N}(0.70, 0.1)$ prior is not applied.
+
 **Nuisance parameters** (`likelihood/params_cluster.yaml`). The priors adopted for each nuisance parameter follow Table I of [Salcedo et al. 2025](https://arxiv.org/abs/2510.25706). The HOD is sampled at the first (`_1`) and third (`_3`) redshift bins and linearly interpolated in redshift for the second.
 
 | Parameter | Prior |
