@@ -1,3 +1,124 @@
+# Cluster lensing likelihood <a name="roman_cluster_lensing"></a>
+
+Credits to Andres Salcedo for the cluster emulator and likelihood.
+
+The `roman_real.cluster_lensing` likelihood fits the stacked cluster weak-lensing
+profile $\Delta\Sigma(r_p)$ in richness bins. It is not computed by Cosmolike, but rather by Gaussian-process emulators. The future goal is to cross-correlate cluster observables with 3x2pt; for now cross-correlations are neglected but the implementation is designed to be simple to extend and add the cross-correlations (e.g. adding a "3x2pt+cluster_lensing" or "3x2pt+gamma_t_cluster" probe).
+
+**Data** (DES Y1 redMaPPer): 3 redshift bins
+($0.20 < z < 0.35$, $0.35 < z < 0.50$, $0.50 < z < 0.65$), each with 6 richness bins
+× 11 radial bins after the $r_p > 0.2$ cut, i.e. 198 points. Each redshift bin has
+its own covariance and there is no cross-covariance, neither between redshift bins
+nor with 3x2pt. The model in redshift bin $i$ is
+
+$$\Delta\Sigma_i = A_{m,i} c_i \left[(1-f_\mathrm{mis})\Delta\Sigma^\mathrm{cen}_i + f_\mathrm{mis}\Delta\Sigma^\mathrm{mis}_i\right]/a_i^2,$$
+
+where $c_i$ corrects $\Sigma_\mathrm{crit}^{-1}$ from the fiducial cosmology of the
+measurement ($\Omega_m = 0.3$, $H_0 = 70$) to the sampled one. Each redshift bin has two Gaussian-process emulators, one for centered and one for miscentered clusters.
+
+Metadata is given in `data/cluster_lensing/`, listed in `data/cluster_lensing_desy1.dataset`.
+
+**Usage**: add the likelihood to a yaml file. For a joint run, list it next to a
+Cosmolike likelihood; the two $\chi^2$ are added.
+
+    likelihood:
+      roman_real.combo_3x2pt:
+        ...
+      roman_real.cluster_lensing:
+        path: ./external_modules/data/roman_real
+        data_file: cluster_lensing_desy1.dataset
+
+**Example**: `EXAMPLE_EVALUATE_CLUSTER_LENSING1.yaml` evaluates the cluster lensing
+likelihood alone at a $w_0w_a$ test point (the same one used for the code comparison, see below). From the cocoa main folder `cocoa/Cocoa`, run
+
+  - Linux
+
+        "${CONDA_PREFIX}"/bin/mpirun -n 1 --oversubscribe \
+          --mca pml ob1 --mca btl vader,tcp,self \
+          --bind-to core:overload-allowed --report-bindings \
+          --rank-by slot --map-by numa:pe=${OMP_NUM_THREADS} \
+          cobaya-run ./projects/roman_real/EXAMPLE_EVALUATE_CLUSTER_LENSING1.yaml -f
+
+  - macOS (arm)
+
+         mpirun -n 1 --oversubscribe \
+          cobaya-run ./projects/roman_real/EXAMPLE_EVALUATE_CLUSTER_LENSING1.yaml -f
+
+The expected result is $\chi^2 = 959.613$ ($\sigma_8 = 0.6590$ from CAMB).
+
+**Nuisance parameters** (`likelihood/params_cluster.yaml`). The priors adopted for each nuisance parameter follow Table I of [Salcedo et al. 2025](https://arxiv.org/abs/2510.25706). The HOD is sampled at the first (`_1`) and third (`_3`) redshift bins and linearly interpolated in redshift for the second.
+
+| Parameter | Prior |
+|---|---|
+| `roman_CL_SIGLOGM_1`, `_3` | flat [0.01, 0.60] |
+| `roman_CL_LOGMMIN_1`, `_3` | flat [12.0, 13.0] |
+| `roman_CL_LOGM20_1`, `_3` | flat [13.8, 15.0] |
+| `roman_CL_ALPHA_1`, `_3` | flat [0.7, 2.0] |
+| `roman_CL_BARYON_B` | flat [−2, 0] |
+| `roman_CL_FMIS` | Gaussian 0.165 ± 0.09 |
+| `roman_CL_TAU` | Gaussian 0.166 ± 0.07 |
+| `roman_CL_AM1`, `AM2`, `AM3` | Gaussian 1.021 ± 0.025, 1.014 ± 0.024, 1.016 ± 0.025 |
+
+The likelihood also has a hard prior for `FMIS` and `TAU` inside the interval [0, 1].
+
+**Emulator inputs.** Computation of the cluster observables $\Delta\Sigma$ in each redshift bin for centered and miscentered clusters is done by Gaussian Process emulators trained in the nuisance parameter prior range. Outside that range the emulators extrapolate. The emulator inputs are:
+
+| Emulator input | Prior adopted |
+|---|---|
+| siglogM | $\mathcal{U}(0.01, 0.60)$ |
+| logMmin | $\mathcal{U}(12.0, 13.0)$ |
+| logM20 | $\mathcal{U}(13.8, 15.0)$ |
+| alpha | $\mathcal{U}(0.7, 2.0)$ |
+| baryonification $B$ (`BARYON_B`; named `PCA` in the emulator files) | $\mathcal{U}(-2.0, 0.0)$ |
+| offset (`TAU`, miscentered only) | $\mathcal{N}(0.166, 0.07)$ |
+| $n_s$ | set in the run yaml |
+| $\sigma_8$ | set in the run yaml |
+| $w_0$ | set in the run yaml |
+| $w_a$ | set in the run yaml |
+| $\Omega_\mathrm{CDM}$ (= $\Omega_m - \Omega_b$) | set in the run yaml |
+| $\Omega_b$ | set in the run yaml |
+| $N_\mathrm{eff}$ | fixed to 3.0238 |
+| $\alpha_s$ (spectral index running) | fixed to 0 |
+
+> [!Warning]
+> The likelihood does not enforce the emulation range of the cosmological inputs.
+> Keep the cosmological priors in the run yaml inside it (see §II.2 of
+> [Salcedo et al. 2025](https://arxiv.org/abs/2510.25706)).
+
+**Comparing with the original code.** 
+The original code is given in `original_code/`. It computes distances with astropy (`Flatw0waCDM`), without radiation
+or massive neutrinos. Here they come from the theory code (e.g. CAMB), and this refactoring changes the model
+vector by about $2\times10^{-4}$ and $\chi^2$ by a few tenths at typical points. With
+astropy distances the two codes agree to machine precision (see the comparison below).
+
+The script `scripts/compare_cluster_lensing.py` computes the data-vector and $\chi^2$ differences
+between the Cocoa port and the original code. An important aspect of the comparison
+is that, in the Cocoa port, $H_0$ comes from the theory code, while the original code instead derived $h$ from CLASS at fixed $100\theta_s = 1.041533$. 
+For each test point, the comparison script:
+
+1. Run the original script that derives $h$ with the original `get_hubble` (CLASS at fixed $\theta_s$),
+2. evaluates Cocoa at $H_0 = 100h$ and reads $\sigma_8$ from CAMB,
+3. evaluates the original `lnprob` with that $\sigma_8$ and removes its Gaussian
+   priors, leaving $\chi^2$ only,
+4. compares the model vectors and $\chi^2$ per redshift bin. It does this once with
+   the Cocoa distances and once with the original's astropy
+   distances, which checks the port itself.
+
+To run the comparison code, from the cocoa main folder `cocoa/Cocoa`, run
+
+    conda activate cocoa
+    source start_cocoa.sh
+    python ./projects/roman_real/scripts/compare_cluster_lensing.py
+
+The table below lists the results at the two test points in the script. Both use the
+HOD and nuisance values of the original script's `x` vector, $\Omega_m = 0.27$,
+$\Omega_b = 0.05$, $n_s = 0.9649$ and $A_s = 2.1\times10^{-9}$.
+
+| Point | $\chi^2$ original | $\chi^2$ Cocoa | $\Delta\chi^2$ | max $\lvert\Delta d/d\rvert$ | $\Delta\chi^2$ with astropy distances | max $\lvert\Delta d/d\rvert$ with astropy distances |
+|---|---|---|---|---|---|---|
+| $w_0 = -1$, $w_a = 0$ ($h = 0.7244$, $\sigma_8 = 0.7758$) | 290.926 | 291.061 | 0.135 | $2.3\times10^{-4}$ | $< 10^{-6}$ | $4\times10^{-16}$ |
+| $w_0 = -0.9$, $w_a = 0.3$ ($h = 0.6733$, $\sigma_8 = 0.6590$) | 959.188 | 959.613 | 0.425 | $2.4\times10^{-4}$ | $< 10^{-6}$ | $8\times10^{-16}$ |
+
 ## Running Cosmolike projects (Basic instructions) <a name="roman_running_cosmolike_projects"></a> 
 
 Also see the documentation for [external baryonic feedback](./README_BARYONS.md).
@@ -172,124 +293,6 @@ model).
 > [!TIP]
 > For the sampled parameters of each model, their validity ranges, and the `bfmt`
 > options, see `Cocoa/external_modules/code/baryon_suppression/README.md`.
-
-# Cluster lensing likelihood <a name="roman_cluster_lensing"></a>
-
-Credits to Andres Salcedo for the cluster emulator and likelihood.
-
-The `roman_real.cluster_lensing` likelihood fits the stacked cluster weak-lensing
-profile $\Delta\Sigma(r_p)$ in richness bins. It is not computed by Cosmolike: each
-redshift bin has two Gaussian-process emulators, one for centered and one for
-miscentered clusters.
-
-**Data** (DES Y1 redMaPPer): 3 redshift bins
-($0.20 < z < 0.35$, $0.35 < z < 0.50$, $0.50 < z < 0.65$), each with 6 richness bins
-× 11 radial bins after the $r_p > 0.2$ cut, i.e. 198 points. Each redshift bin has
-its own covariance and there is no cross-covariance, neither between redshift bins
-nor with 3x2pt. The model in redshift bin $i$ is
-
-$$\Delta\Sigma_i = A_{m,i} c_i \left[(1-f_\mathrm{mis})\Delta\Sigma^\mathrm{cen}_i + f_\mathrm{mis}\Delta\Sigma^\mathrm{mis}_i\right]/a_i^2,$$
-
-where $c_i$ corrects $\Sigma_\mathrm{crit}^{-1}$ from the fiducial cosmology of the
-measurement ($\Omega_m = 0.3$, $H_0 = 70$) to the sampled one.
-
-Metadata is defined in `data/cluster_lensing/`, listed in `data/cluster_lensing_desy1.dataset`.
-
-**Usage**: add the likelihood to a yaml file. For a joint run, list it next to a
-Cosmolike likelihood; the two $\chi^2$ are added.
-
-    likelihood:
-      roman_real.combo_3x2pt:
-        ...
-      roman_real.cluster_lensing:
-        path: ./external_modules/data/roman_real
-        data_file: cluster_lensing_desy1.dataset
-
-**Nuisance parameters** (`likelihood/params_cluster.yaml`). The HOD is sampled at the
-first (`_1`) and third (`_3`) redshift bins and linearly interpolated in redshift for
-the second.
-
-| Parameter | Prior |
-|---|---|
-| `roman_CL_SIGLOGM_1`, `_3` | flat [0.01, 0.60] |
-| `roman_CL_LOGMMIN_1`, `_3` | flat [11.2, 13.4] |
-| `roman_CL_LOGM20_1`, `_3` | flat [14.0, 15.2] |
-| `roman_CL_ALPHA_1` | flat [0.5, 2.0] |
-| `roman_CL_ALPHA_3` | flat [0.5, 2.5] |
-| `roman_CL_PCA` | flat [−2, 0] |
-| `roman_CL_FMIS` | Gaussian 0.165 ± 0.09 |
-| `roman_CL_TAU` | Gaussian 0.166 ± 0.07 |
-| `roman_CL_AM1`, `AM2`, `AM3` | Gaussian 1.021 ± 0.025, 1.014 ± 0.024, 1.016 ± 0.025 |
-
-The likelihood also returns $-\infty$ when `FMIS` or `TAU` is outside [0, 1], or when
-the interpolated second-bin $\log M_\mathrm{min}$ exceeds 12.8, as the original code
-does.
-
-**Emulator training ranges.** The six emulators share one training box, given below
-as the min/max of `raw_training_inputs` in the HDF5 files. `predict_emulator.py` maps
-this box to [0, 1], so outside it the emulators extrapolate.
-
-| Emulator input | Training range | Prior in the original code |
-|---|---|---|
-| siglogM | 0.011 – 0.60 | [0.01, 0.60] |
-| logMmin | 12.0 – 13.0 | [11.2, 13.4]; second bin ≤ 12.8 |
-| logM20 | 13.8 – 14.99 | [14.0, 15.2] |
-| alpha | 0.71 – 1.99 | [0.5, 2.0] first bin, [0.5, 2.5] second and third |
-| PCA | −1.99 – −0.004 | [−2, 0] |
-| offset (`TAU`, miscentered only) | 0.011 – 0.449 | 0.166 ± 0.07 in [0, 1] |
-| $n_s$ | 0.9012 – 1.0249 | [0.9012, 1.0249] |
-| $\sigma_8$ | 0.678 – 0.938 | [0.65, 1.05] |
-| $w_0$ | −1.271 – −0.726 | [−1.3, −0.7] |
-| $w_a$ | −0.628 – 0.621 | [−0.7, 0.7] |
-| $\Omega_\mathrm{CDM}$ (= $\Omega_m - \Omega_b$) | 0.208 – 0.354 | through $\Omega_m$ in [0.16, 0.42] |
-| $\Omega_b$ | 0.039 – 0.066 | [0.03, 0.07] |
-| $\alpha_s$ | −0.038 – 0.038 | fixed to 0 |
-| $N_\mathrm{eff}$ | 2.18 – 3.89 | fixed to 3.0238 |
-
-> [!Warning]
-> The original priors on logMmin, logM20, alpha, $\sigma_8$, $w_0$, $w_a$ and $\Omega_m$
-> extend past the training range, and `params_cluster.yaml` keeps the original HOD
-> priors. Keep the cosmological priors in the run yaml inside the training box.
-
-The original code computes distances with astropy (`Flatw0waCDM`), without radiation
-or massive neutrinos. Here they come from the theory code, which changes the model
-vector by about $2\times10^{-4}$ and $\chi^2$ by a few tenths at typical points. With
-astropy distances the two codes agree to machine precision (see the comparison below).
-
-**Comparing with the original code.** The script
-`scripts/compare_cluster_lensing.py` computes the data-vector and $\chi^2$ differences
-between the Cocoa port and the original code. It imports the original script as a
-module, with the arguments of `run_final_DESY1_MCMC_all.pbs`, so the comparison uses
-the original `lnprob`, emulators, masked covariances and data. An important aspect of the comparison
-is that, tn the Cocoa port, $H_0$ comes from the theory code, while the original code instead derived $h$ from CLASS at fixed $100\theta_s = 1.041533$. 
-For each test point, the comparison script:
-
-1. derives $h$ with the original `get_hubble` (CLASS at fixed $\theta_s$),
-2. evaluates Cocoa at $H_0 = 100h$ and reads $\sigma_8$ from CAMB,
-3. evaluates the original `lnprob` with that $\sigma_8$ and removes its Gaussian
-   priors, leaving $\chi^2$ only,
-4. compares the model vectors and $\chi^2$ per redshift bin. It does this once with
-   the Cocoa distances and once with the original's astropy
-   distances, which checks the port itself.
-
-To run the comparison script, we will assume the original code -- emulators, `predict_emulator.py`, dataset information, and `emcee_cosmo_emu_bin_rich_lens_3bin_HOD_evol_ns_free_w0waCDM_v2.py` -- are in a folder named `Cluster_cosmo/`. Open `scripts/compare_cluster_lensing.py` and set the path to the `Cluster_cosmo/` folder at the top of the file:
-
-    CLUSTER_COSMO_DIR = "/path/to/Cluster_cosmo"
-
-Then from the cocoa main folder `cocoa/Cocoa`, run
-
-    conda activate cocoa
-    source start_cocoa.sh
-    python ./projects/roman_real/scripts/compare_cluster_lensing.py
-
-The table below lists the results at the two test points in the script. Both use the
-HOD and nuisance values of the original script's `x` vector, $\Omega_m = 0.27$,
-$\Omega_b = 0.05$, $n_s = 0.9649$ and $A_s = 2.1\times10^{-9}$.
-
-| Point | $\chi^2$ original | $\chi^2$ Cocoa | $\Delta\chi^2$ | max $\lvert\Delta d/d\rvert$ | $\Delta\chi^2$ with astropy distances | max $\lvert\Delta d/d\rvert$ with astropy distances |
-|---|---|---|---|---|---|---|
-| $w_0 = -1$, $w_a = 0$ ($h = 0.7244$, $\sigma_8 = 0.7758$) | 290.926 | 291.061 | 0.135 | $2.3\times10^{-4}$ | $< 10^{-6}$ | $4\times10^{-16}$ |
-| $w_0 = -0.9$, $w_a = 0.3$ ($h = 0.6733$, $\sigma_8 = 0.6590$) | 959.188 | 959.613 | 0.425 | $2.4\times10^{-4}$ | $< 10^{-6}$ | $8\times10^{-16}$ |
 
 # Table of contents <a name="table_of_contents"></a>
 

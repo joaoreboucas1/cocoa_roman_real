@@ -700,7 +700,7 @@ class _cosmolike_prototype_base(DataSetLikelihood):
   # ------------------------------------------------------------------------
   # CLUSTER LENSING: stacked Delta Sigma(r_p) in richness bins, one GP
   # emulator per redshift bin for centered and miscentered clusters.
-  # Ported from Cluster_cosmo/emcee_cosmo_emu_bin_rich_lens_3bin_HOD_evol_
+  # Ported from original_code/emcee_cosmo_emu_bin_rich_lens_3bin_HOD_evol_
   # ns_free_w0waCDM_v2.py. Not computed by Cosmolike. H0 comes from Cobaya
   # (the original derived h from CLASS at fixed theta_s).
   # ------------------------------------------------------------------------
@@ -810,7 +810,7 @@ class _cosmolike_prototype_base(DataSetLikelihood):
              omegab,
              self.cl_fixed_alpha_s,
              self.cl_fixed_Neff]
-    pca  = params[survey+"_CL_PCA"]
+    bary = params[survey+"_CL_BARYON_B"] # baryonification (named PCA in the emulator files)
     fmis = params[survey+"_CL_FMIS"]
     tau  = params[survey+"_CL_TAU"]
     chi  = self.provider.get_comoving_radial_distance(self.cl_zgrid)
@@ -820,8 +820,8 @@ class _cosmolike_prototype_base(DataSetLikelihood):
     for i in range(self.cl_nzbins):
       Am   = params[survey+"_CL_AM"+str(i+1)]
       corr = self.cluster_lensing_corr(self.cl_z_data[i], self.cl_src[i], chi)
-      cen  = self.cl_emu_cen[i](np.array(hod[i] + [pca] + cosmo))
-      mis  = self.cl_emu_mis[i](np.array(hod[i] + [pca, tau] + cosmo))
+      cen  = self.cl_emu_cen[i](np.array(hod[i] + [bary] + cosmo))
+      mis  = self.cl_emu_mis[i](np.array(hod[i] + [bary, tau] + cosmo))
       cut  = self.cl_cut[i]
       dv.append(Am*corr*((1.0 - fmis)*cen[cut] + fmis*mis[cut])/self.cl_a[i]**2)
     dv = np.concatenate(dv)
@@ -845,11 +845,8 @@ class _cosmolike_prototype_base(DataSetLikelihood):
     tau  = params[survey+"_CL_TAU"]
     if not (0.0 <= fmis <= 1.0) or not (0.0 <= tau <= 1.0):
       return -np.inf
-    hod = self.cluster_lensing_hod(**params)
-    if any(h[1] > 12.8 for h in hod[1:-1]): # interpolated bins: logMmin
-      return -np.inf
 
-    dv = self.get_cluster_lensing_datavector(**params)
+    dv =self.get_cluster_lensing_datavector(**params)
     chi2 = 0.0
     istart = 0
     for i in range(self.cl_nzbins):

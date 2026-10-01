@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # ------------------------------------------------------------------------------
 # Compares the Cocoa port of the cluster lensing likelihood
-# (roman_real.cluster_lensing) against the original code in Cluster_cosmo/
+# (roman_real.cluster_lensing) against the original code shipped in
+# projects/roman_real/original_code/
 # (emcee_cosmo_emu_bin_rich_lens_3bin_HOD_evol_ns_free_w0waCDM_v2.py).
 #
 # The original script is imported as a module, with the command-line
@@ -22,11 +23,6 @@
 #   python ./projects/roman_real/scripts/compare_cluster_lensing.py
 # ------------------------------------------------------------------------------
 
-# USER INPUT: path to the Cluster_cosmo/ folder (e.g. "/Users/me/cosmo/Cluster_cosmo")
-CLUSTER_COSMO_DIR = ""
-CLUSTER_COSMO_DIR = "/Users/joao/cosmo/Cluster_cosmo"
-
-# ------------------------------------------------------------------------------
 import os
 import sys
 import importlib.util
@@ -34,9 +30,8 @@ import numpy as np
 import astropy.cosmology
 from cobaya.model import get_model
 
-if not CLUSTER_COSMO_DIR:
-  sys.exit("Set CLUSTER_COSMO_DIR at the top of this script to the Cluster_cosmo/ folder")
-D = os.path.abspath(os.path.expanduser(CLUSTER_COSMO_DIR))
+# The original code lives in projects/roman_real/original_code/
+D = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "original_code"))
 ORIG = "emcee_cosmo_emu_bin_rich_lens_3bin_HOD_evol_ns_free_w0waCDM_v2.py"
 if not os.path.isfile(os.path.join(D, ORIG)):
   sys.exit(f"{ORIG} not found in {D}")
@@ -103,7 +98,7 @@ like = model.likelihood["roman_real.cluster_lensing"]
 # ------------------------------------------------------------------------------
 nuisance = {"roman_CL_SIGLOGM_1": 0.3, "roman_CL_LOGMMIN_1": 12.5, "roman_CL_LOGM20_1": 14.5, "roman_CL_ALPHA_1": 1.26,
             "roman_CL_SIGLOGM_3": 0.3, "roman_CL_LOGMMIN_3": 12.5, "roman_CL_LOGM20_3": 14.5, "roman_CL_ALPHA_3": 1.26,
-            "roman_CL_PCA": -0.5, "roman_CL_FMIS": 0.16, "roman_CL_TAU": 0.16,
+            "roman_CL_BARYON_B": -0.5, "roman_CL_FMIS": 0.16, "roman_CL_TAU": 0.16,
             "roman_CL_AM1": 1.03, "roman_CL_AM2": 1.03, "roman_CL_AM3": 0.97}
 points = [
   {"name": "LCDM", "As_1e9": 2.1, "ns": 0.9649, "omegab": 0.05, "omegam": 0.27, "w": -1.0, "wa": 0.0},
@@ -159,7 +154,7 @@ for p in points:
   # (3) original code, same point
   x = [nuisance[k] for k in ["roman_CL_SIGLOGM_1", "roman_CL_LOGMMIN_1", "roman_CL_LOGM20_1", "roman_CL_ALPHA_1",
                              "roman_CL_SIGLOGM_3", "roman_CL_LOGMMIN_3", "roman_CL_LOGM20_3", "roman_CL_ALPHA_3",
-                             "roman_CL_PCA", "roman_CL_FMIS", "roman_CL_TAU",
+                             "roman_CL_BARYON_B", "roman_CL_FMIS", "roman_CL_TAU",
                              "roman_CL_AM1", "roman_CL_AM2", "roman_CL_AM3"]]
   x += [sigma8, p["omegam"], p["omegab"], p["ns"], p["w"], p["wa"]]
   lnprob = orig.lnprob(x)

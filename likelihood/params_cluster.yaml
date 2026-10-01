@@ -1,163 +1,165 @@
-  # ------------------------------------------------------------------------
-  # ------------------------------------------------------------------------
-  # ------------------------------------------------------------------------
-  # Cluster HOD parameters, sampled at the first (_1) and third (_3) cluster
-  # redshift bins. The second bin is linearly interpolated in redshift.
-  roman_CL_SIGLOGM_1:
-    prior:
-      min: 0.01
-      max: 0.60
-    ref:
-      dist: norm
-      loc: 0.30
-      scale: 0.03
-    proposal: 0.03
-    latex: \sigma_{\log M,\mathrm{CL}}^1
-  roman_CL_SIGLOGM_3:
-    prior:
-      min: 0.01
-      max: 0.60
-    ref:
-      dist: norm
-      loc: 0.30
-      scale: 0.03
-    proposal: 0.03
-    latex: \sigma_{\log M,\mathrm{CL}}^3
-  roman_CL_LOGMMIN_1:
-    prior:
-      min: 11.2
-      max: 13.4
-    ref:
-      dist: norm
-      loc: 12.25
-      scale: 0.15
-    proposal: 0.1
-    latex: \log M_{\mathrm{min},\mathrm{CL}}^1
-  roman_CL_LOGMMIN_3:
-    prior:
-      min: 11.2
-      max: 13.4
-    ref:
-      dist: norm
-      loc: 12.25
-      scale: 0.15
-    proposal: 0.1
-    latex: \log M_{\mathrm{min},\mathrm{CL}}^3
-  roman_CL_LOGM20_1:
-    prior:
-      min: 14.0
-      max: 15.2
-    ref:
-      dist: norm
-      loc: 14.3
-      scale: 0.1
-    proposal: 0.1
-    latex: \log M_{20,\mathrm{CL}}^1
-  roman_CL_LOGM20_3:
-    prior:
-      min: 14.0
-      max: 15.2
-    ref:
-      dist: norm
-      loc: 14.3
-      scale: 0.1
-    proposal: 0.1
-    latex: \log M_{20,\mathrm{CL}}^3
-  roman_CL_ALPHA_1:
-    prior:
-      min: 0.5
-      max: 2.0
-    ref:
-      dist: norm
-      loc: 1.3
-      scale: 0.1
-    proposal: 0.1
-    latex: \alpha_\mathrm{CL}^1
-  roman_CL_ALPHA_3:
-    prior:
-      min: 0.5
-      max: 2.5
-    ref:
-      dist: norm
-      loc: 1.3
-      scale: 0.1
-    proposal: 0.1
-    latex: \alpha_\mathrm{CL}^3
-  # ------------------------------------------------------------------------
-  # ------------------------------------------------------------------------
-  # ------------------------------------------------------------------------
-  # Cluster projection-effect (PCA) parameter
-  roman_CL_PCA:
-    prior:
-      min: -2.0
-      max: 0.0
-    ref:
-      dist: norm
-      loc: -0.5
-      scale: 0.05
-    proposal: 0.05
-    latex: \mathrm{PCA}_\mathrm{CL}
-  # ------------------------------------------------------------------------
-  # ------------------------------------------------------------------------
-  # ------------------------------------------------------------------------
-  # Miscentering: fraction and offset (the likelihood also requires both
-  # to lie in [0,1], as in the original code)
-  roman_CL_FMIS:
-    prior:
-      dist: norm
-      loc: 0.165
-      scale: 0.09
-    ref:
-      dist: norm
-      loc: 0.165
-      scale: 0.09
-    proposal: 0.05
-    latex: f_\mathrm{mis,CL}
-  roman_CL_TAU:
-    prior:
-      dist: norm
-      loc: 0.166
-      scale: 0.07
-    ref:
-      dist: norm
-      loc: 0.166
-      scale: 0.07
-    proposal: 0.05
-    latex: \tau_\mathrm{mis,CL}
-  # ------------------------------------------------------------------------
-  # ------------------------------------------------------------------------
-  # ------------------------------------------------------------------------
-  # Lensing calibration (McClintock et al. 2019), one per cluster redshift bin
-  roman_CL_AM1:
-    prior:
-      dist: norm
-      loc: 1.021
-      scale: 0.025
-    ref:
-      dist: norm
-      loc: 1.021
-      scale: 0.025
-    proposal: 0.025
-    latex: A_{m,\mathrm{CL}}^1
-  roman_CL_AM2:
-    prior:
-      dist: norm
-      loc: 1.014
-      scale: 0.024
-    ref:
-      dist: norm
-      loc: 1.014
-      scale: 0.024
-    proposal: 0.024
-    latex: A_{m,\mathrm{CL}}^2
-  roman_CL_AM3:
-    prior:
-      dist: norm
-      loc: 1.016
-      scale: 0.025
-    ref:
-      dist: norm
-      loc: 1.016
-      scale: 0.025
-    proposal: 0.025
-    latex: A_{m,\mathrm{CL}}^3
+
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# Cluster HOD parameters, sampled at the first (_1) and third (_3) cluster
+# redshift bins. The second bin is linearly interpolated in redshift.
+# Priors from Table I from https://arxiv.org/pdf/2510.25706
+roman_CL_SIGLOGM_1:
+  prior:
+    min: 0.01
+    max: 0.60
+  ref:
+    dist: norm
+    loc: 0.30
+    scale: 0.03
+  proposal: 0.03
+  latex: \sigma_{\log M,\mathrm{CL}}^1
+roman_CL_SIGLOGM_3:
+  prior:
+    min: 0.01
+    max: 0.60
+  ref:
+    dist: norm
+    loc: 0.30
+    scale: 0.03
+  proposal: 0.03
+  latex: \sigma_{\log M,\mathrm{CL}}^3
+roman_CL_LOGMMIN_1:
+  prior:
+    min: 12.0
+    max: 13.0
+  ref:
+    dist: norm
+    loc: 12.25
+    scale: 0.15
+  proposal: 0.1
+  latex: \log M_{\mathrm{min},\mathrm{CL}}^1
+roman_CL_LOGMMIN_3:
+  prior:
+    min: 12.0
+    max: 13.0
+  ref:
+    dist: norm
+    loc: 12.25
+    scale: 0.15
+  proposal: 0.1
+  latex: \log M_{\mathrm{min},\mathrm{CL}}^3
+roman_CL_LOGM20_1:
+  prior:
+    min: 13.8
+    max: 15.0
+  ref:
+    dist: norm
+    loc: 14.3
+    scale: 0.1
+  proposal: 0.1
+  latex: \log M_{20,\mathrm{CL}}^1
+roman_CL_LOGM20_3:
+  prior:
+    min: 13.8
+    max: 15.0
+  ref:
+    dist: norm
+    loc: 14.3
+    scale: 0.1
+  proposal: 0.1
+  latex: \log M_{20,\mathrm{CL}}^3
+roman_CL_ALPHA_1:
+  prior:
+    min: 0.7
+    max: 2.0
+  ref:
+    dist: norm
+    loc: 1.3
+    scale: 0.1
+  proposal: 0.1
+  latex: \alpha_\mathrm{CL}^1
+roman_CL_ALPHA_3:
+  prior:
+    min: 0.7
+    max: 2.0
+  ref:
+    dist: norm
+    loc: 1.3
+    scale: 0.1
+  proposal: 0.1
+  latex: \alpha_\mathrm{CL}^3
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# Cluster Baryonification parameter
+roman_CL_BARYON_B:
+  prior:
+    min: -2.0
+    max: 0.0
+  ref:
+    dist: norm
+    loc: -0.5
+    scale: 0.05
+  proposal: 0.05
+  latex: B_\mathrm{CL}
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# Miscentering: fraction and offset (the likelihood also requires both
+# to lie in [0,1], as in the original code)
+roman_CL_FMIS:
+  prior:
+    dist: norm
+    loc: 0.165
+    scale: 0.09
+  ref:
+    dist: norm
+    loc: 0.165
+    scale: 0.09
+  proposal: 0.05
+  latex: f_\mathrm{mis,CL}
+roman_CL_TAU:
+  prior:
+    dist: norm
+    loc: 0.166
+    scale: 0.07
+  ref:
+    dist: norm
+    loc: 0.166
+    scale: 0.07
+  proposal: 0.05
+  latex: \tau_\mathrm{mis,CL}
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# Lensing calibration (McClintock et al. 2019), one per cluster redshift bin
+roman_CL_AM1:
+  prior:
+    dist: norm
+    loc: 1.021
+    scale: 0.025
+  ref:
+    dist: norm
+    loc: 1.021
+    scale: 0.025
+  proposal: 0.025
+  latex: A_{m,\mathrm{CL}}^1
+roman_CL_AM2:
+  prior:
+    dist: norm
+    loc: 1.014
+    scale: 0.024
+  ref:
+    dist: norm
+    loc: 1.014
+    scale: 0.024
+  proposal: 0.024
+  latex: A_{m,\mathrm{CL}}^2
+roman_CL_AM3:
+  prior:
+    dist: norm
+    loc: 1.016
+    scale: 0.025
+  ref:
+    dist: norm
+    loc: 1.016
+    scale: 0.025
+  proposal: 0.025
+  latex: A_{m,\mathrm{CL}}^3
