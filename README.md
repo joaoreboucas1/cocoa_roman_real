@@ -46,13 +46,21 @@ likelihood alone at a $w_0w_a$ test point (the same one used for the code compar
 
 The expected result is $\chi^2 = 959.613$ ($\sigma_8 = 0.6590$ from CAMB).
 
-**MCMC example**: `EXAMPLE_MCMC_CLUSTER_LENSING1.yaml` samples the cluster lensing
-likelihood alone, set up to resemble the original `ns_fix` chain in `original_code/`:
-$\Lambda$CDM with $n_s = 0.9649$ fixed, $100\theta$ fixed to 1.041533 (so $H_0$ is
-derived), and a Gaussian prior $\Omega_\mathrm{b}h^2 \sim \mathcal{N}(0.02208, 0.00052)$.
-It samples $\log(10^{10}A_s)$, $\Omega_\mathrm{b}h^2$, $\Omega_\mathrm{c}h^2$ and the 14
-cluster nuisance parameters, and derives $H_0$, $\Omega_\mathrm{m}$, $\Omega_\mathrm{b}$,
-$\sigma_8$ and $S_8$. From the cocoa main folder `cocoa/Cocoa`, run
+**MCMC examples**: `EXAMPLE_MCMC_CLUSTER_LENSING1.yaml` and
+`EXAMPLE_MCMC_CLUSTER_LENSING2.yaml` sample the cluster lensing likelihood alone, set up
+to resemble the original `ns_fix` chain in `original_code/`: $\Lambda$CDM with
+$n_s = 0.9649$ fixed, $100\theta$ fixed to 1.041533 (so $H_0$ is derived), and a Gaussian
+prior $\Omega_\mathrm{b}h^2 \sim \mathcal{N}(0.02208, 0.00052)$. They sample
+$\log(10^{10}A_s)$, $\Omega_\mathrm{b}h^2$, $\Omega_\mathrm{c}h^2$ and the 14 cluster
+nuisance parameters, and derive $H_0$, $\Omega_\mathrm{m}$, $\Omega_\mathrm{b}$,
+$\sigma_8$ and $S_8$. The two differ only in the nuisance priors (see the tables below):
+
+| yaml | Nuisance priors |
+|---|---|
+| `EXAMPLE_MCMC_CLUSTER_LENSING1.yaml` | first set (Table I of Salcedo et al. 2025), from `likelihood/params_cluster.yaml` |
+| `EXAMPLE_MCMC_CLUSTER_LENSING2.yaml` | second set (original emcee script), overriding logMmin, logM20 and alpha in its `params` block |
+
+From the cocoa main folder `cocoa/Cocoa`, run (replace `1` with `2` for the second case)
 
   - Linux
 
@@ -67,8 +75,16 @@ $\sigma_8$ and $S_8$. From the cocoa main folder `cocoa/Cocoa`, run
          mpirun -n 4 --oversubscribe \
           cobaya-run ./projects/roman_real/EXAMPLE_MCMC_CLUSTER_LENSING1.yaml -f
 
-The chains are written to `chains/EXAMPLE_MCMC_CLUSTER_LENSING1` and the run stops at
-Gelman-Rubin $R-1 < 0.02$.
+The chains are written to `chains/EXAMPLE_MCMC_CLUSTER_LENSING1` (or `...2`) and each run
+stops at Gelman-Rubin $R-1 < 0.02$.
+
+On a Slurm cluster, `scripts/run_mcmc_cluster_lensing.sh` submits both cases as a job
+array, where the array index selects the yaml. From `cocoa/Cocoa`, run
+
+    sbatch --array=1-2 ./projects/roman_real/scripts/run_mcmc_cluster_lensing.sh
+
+(`--array=2` submits only the second case). Logs are written to `logs/`. The partition,
+QOS and account in the script's `#SBATCH` lines are cluster-specific; adapt them to yours.
 
 > [!NOTE]
 > The setup differs from the original chain in a few ways:
@@ -93,6 +109,26 @@ Gelman-Rubin $R-1 < 0.02$.
 | `roman_CL_AM1`, `AM2`, `AM3` | Gaussian 1.021 ± 0.025, 1.014 ± 0.024, 1.016 ± 0.025 |
 
 The likelihood also has a hard prior for `FMIS` and `TAU` inside the interval [0, 1].
+
+A second set of priors is the one used in the original emcee script
+`original_code/emcee_cosmo_emu_bin_rich_lens_3bin_HOD_evol_ns_fix_v2.py`, which produced
+the chain `original_code/MCMC_DESY1CL_fidchain_AB_Analytic_fid_priors_theta_prior_HOD_evol_ns_fix_rich10_v5.hdf5`.
+It is wider than the first set in logMmin and alpha, and shifted to higher values in logM20.
+To use it, edit the bounds in `likelihood/params_cluster.yaml`.
+
+| Parameter | Prior (second set) |
+|---|---|
+| `roman_CL_SIGLOGM_1`, `_3` | flat [0.01, 0.60] |
+| `roman_CL_LOGMMIN_1`, `_3` | flat [11.2, 13.4] |
+| `roman_CL_LOGM20_1`, `_3` | flat [14.0, 15.2] |
+| `roman_CL_ALPHA_1`, `_3` | flat [0.5, 2.5] |
+| `roman_CL_BARYON_B` | flat [−2, 0] |
+| `roman_CL_FMIS` | Gaussian 0.165 ± 0.09, within [0, 1] |
+| `roman_CL_TAU` | Gaussian 0.166 ± 0.07, within [0, 1] |
+| `roman_CL_AM1`, `AM2`, `AM3` | Gaussian 1.021 ± 0.025, 1.014 ± 0.024, 1.016 ± 0.025 |
+
+The same bounds apply to the interpolated second bin, and they are automatically
+satisfied there.
 
 **Emulator inputs.** Computation of the cluster observables $\Delta\Sigma$ in each redshift bin for centered and miscentered clusters is done by Gaussian Process emulators trained in the nuisance parameter prior range. Outside that range the emulators extrapolate. The emulator inputs are:
 
