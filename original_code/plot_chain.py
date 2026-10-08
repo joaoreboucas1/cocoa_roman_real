@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from getdist import MCSamples, plots
 
 OUT = os.path.dirname(os.path.abspath(__file__))
-FN = os.path.join(OUT, "MCMC_DESY1CL_fidchain_AB_Analytic_fid_priors_theta_prior_HOD_evol_ns_fix_ASPrior_rich10_v5.hdf5")
+FN = os.path.join(OUT, "MCMC_DESY1CL_fidchain_AB_Analytic_fid_priors_theta_prior_HOD_evol_ns_fix_rich10_v5.hdf5")
 BURN = 150 # steps discarded as burn-in (of 300)
 
 # parameter order of p0 in emcee_cosmo_emu_bin_rich_lens_3bin_HOD_evol_ns_fix_v2.py
